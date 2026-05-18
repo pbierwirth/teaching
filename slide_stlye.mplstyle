@@ -1,0 +1,41 @@
+# inspired by 'https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-dark.mplstyle'
+# Seaborn common parameters
+# .15 = dark_gray
+# .8 = light_gray
+legend.frameon: False
+legend.numpoints: 1
+legend.scatterpoints: 1
+xtick.direction: out
+ytick.direction: out
+axes.axisbelow: True
+font.family: sans-serif
+font.size: 14
+grid.linestyle: -
+lines.solid_capstyle: round
+
+# Seaborn darkgrid parameters
+axes.grid: True
+axes.edgecolor: white
+axes.linewidth: 0
+xtick.major.size: 0
+ytick.major.size: 0
+xtick.minor.size: 0
+ytick.minor.size: 0
+
+# from mplcyberpunk
+text.color: 1
+axes.labelcolor: 1
+xtick.color: 1
+ytick.color: 1
+grid.color: 0.1
+grid.alpha: 0.4
+
+# Custom
+font.sans-serif: Overpass, Helvetica, Helvetica Neue, Arial, Liberation Sans, DejaVu Sans, Bitstream Vera Sans, sans-serif
+# axes.prop_cycle: cycler('color', ['18c0c4', 'f62196', 'A267F5', 'f3907e', 'ffe46b', 'fefeff'])
+axes.prop_cycle: cycler('color', ['66c2a5','fc8d62','8da0cb','e78ac3','a6d854','ffd92f'])
+image.cmap: RdPu
+figure.facecolor: 2e3440
+axes.facecolor: 2e3440
+savefig.facecolor: 2e3440
+
