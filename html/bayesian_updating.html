@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bayesian Updating</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2e; /* Dunkler Hintergrund ähnlich pitayasmoothie */
+            color: #cdd6f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h2 { margin-bottom: 5px; }
+        #plot {
+            width: 100%;
+            max-width: 800px;
+            height: 500px;
+        }
+        .controls {
+            width: 100%;
+            max-width: 800px;
+            background-color: #313244;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .slider-group label {
+            width: 180px;
+            font-weight: bold;
+        }
+        .slider-group input[type=range] {
+            flex-grow: 1;
+            margin: 0 15px;
+        }
+        .value-display {
+            width: 40px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Bayesian Updating</h2>
+    
+    <div id="plot"></div>
+
+    <div class="controls">
+        <div class="slider-group">
+            <label>Prior µ (Mittelwert)</label>
+            <input type="range" id="p_mu" min="0" max="12" step="0.1" value="8">
+            <span id="p_mu_val" class="value-display">8.0</span>
+        </div>
+        <div class="slider-group">
+            <label>Prior σ (Streuung)</label>
+            <input type="range" id="p_sigma" min="0.1" max="5" step="0.1" value="1.0">
+            <span id="p_sigma_val" class="value-display">1.0</span>
+        </div>
+        <div class="slider-group">
+            <label>Likelihood µ (Mittelwert)</label>
+            <input type="range" id="l_mu" min="0" max="12" step="0.1" value="4">
+            <span id="l_mu_val" class="value-display">4.0</span>
+        </div>
+        <div class="slider-group">
+            <label>Likelihood σ (Streuung)</label>
+            <input type="range" id="l_sigma" min="0.1" max="5" step="0.1" value="1.0">
+            <span id="l_sigma_val" class="value-display">1.0</span>
+        </div>
+    </div>
+
+    <script>
+        // 1. Definition der x-Achse (0 bis 12, Schritt 0.01)
+        const x = [];
+        const dx = 0.01;
+        for (let i = 0; i <= 12; i += dx) {
+            x.push(i);
+        }
+
+        // Hilfsfunktion: Berechnung der Gaußschen Wahrscheinlichkeitsdichtefunktion
+        function gaussian(x_val, mu, sigma) {
+            const factor = 1.0 / (sigma * Math.sqrt(2 * Math.PI));
+            const exponent = -0.5 * Math.pow((x_val - mu) / sigma, 2);
+            return factor * Math.exp(exponent);
+        }
+
+        // Hauptfunktion zum Berechnen und Plotten
+        function updatePlot() {
+            // Werte von den Schiebereglern holen
+            const p_mu = parseFloat(document.getElementById('p_mu').value);
+            const p_sigma = parseFloat(document.getElementById('p_sigma').value);
+            const l_mu = parseFloat(document.getElementById('l_mu').value);
+            const l_sigma = parseFloat(document.getElementById('l_sigma').value);
+
+            // Text-Anzeigen aktualisieren
+            document.getElementById('p_mu_val').innerText = p_mu.toFixed(1);
+            document.getElementById('p_sigma_val').innerText = p_sigma.toFixed(1);
+            document.getElementById('l_mu_val').innerText = l_mu.toFixed(1);
+            document.getElementById('l_sigma_val').innerText = l_sigma.toFixed(1);
+
+            // Arrays für die Y-Werte initialisieren
+            const prior_y = [];
+            const lik_y = [];
+            const post_y = [];
+            let post_sum = 0;
+
+            // Verteilungen berechnen
+            for (let i = 0; i < x.length; i++) {
+                const prior_val = gaussian(x[i], p_mu, p_sigma);
+                const lik_val = gaussian(x[i], l_mu, l_sigma);
+                const post_val = prior_val * lik_val; // Unnormalisiertes Posterior
+
+                prior_y.push(prior_val);
+                lik_y.push(lik_val);
+                post_y.push(post_val);
+                post_sum += post_val;
+            }
+
+            // Posterior normalisieren (damit Integral = 1)
+            const area = post_sum * dx;
+            let max_y = 0;
+            for (let i = 0; i < x.length; i++) {
+                if (area > 0) {
+                    post_y[i] = post_y[i] / area;
+                }
+                // Maximalen Y-Wert für Skalierung finden
+                max_y = Math.max(max_y, prior_y[i], lik_y[i], post_y[i]);
+            }
+
+            // Spuren für Plotly definieren
+            const trace_prior = {
+                x: x, y: prior_y,
+                mode: 'lines', name: 'Prior',
+                line: {color: '#89b4fa', width: 2} // Blau
+            };
+            
+            const trace_lik = {
+                x: x, y: lik_y,
+                mode: 'lines', name: 'Likelihood',
+                line: {color: '#fab387', width: 2} // Orange
+            };
+            
+            const trace_post = {
+                x: x, y: post_y,
+                mode: 'lines', name: 'Posterior',
+                line: {color: '#a6e3a1', width: 3, dash: 'dash'} // Grün gestrichelt
+            };
+
+            const layout = {
+                paper_bgcolor: '#1e1e2e',
+                plot_bgcolor: '#1e1e2e',
+                font: {color: '#cdd6f4'},
+                margin: {t: 30, b: 40, l: 40, r: 20},
+                yaxis: {
+                    range: [0, max_y * 1.1],
+                    gridcolor: '#45475a',
+                    zerolinecolor: '#45475a'
+                },
+                xaxis: {
+                    gridcolor: '#45475a',
+                    zerolinecolor: '#45475a'
+                },
+                legend: {x: 0.8, y: 1}
+            };
+
+            // Plotly React ist sehr schnell und flackerfrei für Updates
+            Plotly.react('plot', [trace_prior, trace_lik, trace_post], layout);
+        }
+
+        // Event-Listener an die Schieberegler anhängen
+        document.getElementById('p_mu').addEventListener('input', updatePlot);
+        document.getElementById('p_sigma').addEventListener('input', updatePlot);
+        document.getElementById('l_mu').addEventListener('input', updatePlot);
+        document.getElementById('l_sigma').addEventListener('input', updatePlot);
+
+        // Initiales Plotten beim Laden der Seite
+        updatePlot();
+    </script>
+</body>
+</html>
