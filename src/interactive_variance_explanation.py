@@ -3,9 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 from scipy.stats import gaussian_kde, norm
-%matplotlib qt
-
-
+#%matplotlib qt
 
 np.random.seed(10)
 r = 0

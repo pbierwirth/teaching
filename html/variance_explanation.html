@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaktive Bedingte Verteilung - Dark Theme</title>
+    <style>
+        body {
+            /* Die Schriften aus deinem matplotlib-style */
+            font-family: Overpass, Helvetica, 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif;
+            background-color: #2e3440; /* Nord Dark Background */
+            color: #ffffff; /* Weißer Text */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 30px;
+        }
+        .container {
+            width: 700px;
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4); /* Etwas stärkerer Schatten für Dark Mode */
+            border-radius: 8px;
+            background: #2e3440;
+        }
+        canvas {
+            background-color: #2e3440; /* Canvas Hintergrund anpassen */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .control-group label {
+            width: 140px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        .control-group input[type="range"] {
+            flex-grow: 1;
+            margin: 0 15px;
+            cursor: pointer;
+            accent-color: #8da0cb; /* Passender Blau-Ton für moderne Browser */
+        }
+        .val-display {
+            width: 50px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        /* Farbige Labels zur Orientierung */
+        #label-r { color: #8da0cb; } /* Das Blau aus deinem Cycler */
+        #label-x { color: #ffffff; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <canvas id="plotCanvas" width="660" height="450"></canvas>
+
+    <div class="control-group">
+        <label id="label-r">Correlation (r):</label>
+        <input type="range" id="slider-r" min="-0.99" max="0.99" step="0.01" value="0.0">
+        <div id="val-r" class="val-display">0.00</div>
+    </div>
+
+    <div class="control-group">
+        <label id="label-x">X-Slice Position:</label>
+        <input type="range" id="slider-x" min="-3" max="3" step="0.1" value="0.0">
+        <div id="val-x" class="val-display">0.0</div>
+    </div>
+</div>
+
+<script>
+    // --- 1. DATEN GENERIERUNG (Einmalig beim Laden) ---
+    const N = 2000;
+    const xData = new Float64Array(N);
+    const noiseBase = new Float64Array(N);
+    let xMean = 0;
+
+    // Box-Muller Transformation für normalverteilte Zufallszahlen
+    function randn() {
+        let u = 0, v = 0;
+        while(u === 0) u = Math.random();
+        while(v === 0) v = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    let sumX = 0;
+    for(let i=0; i<N; i++) {
+        let val = randn();
+        xData[i] = val;
+        noiseBase[i] = randn();
+        sumX += val;
+    }
+    xMean = sumX / N;
+
+    // --- 2. CANVAS SETUP UND SKALIERUNG ---
+    const canvas = document.getElementById('plotCanvas');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    const xMin = -4.5, xMax = 4.5;
+    const yMin = -5.5, yMax = 5.5;
+
+    function mapX(x) { return ((x - xMin) / (xMax - xMin)) * width; }
+    function mapY(y) { return height - ((y - yMin) / (yMax - yMin)) * height; }
+
+    function normPdf(x, mu, sigma) {
+        return (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mu) / sigma, 2));
+    }
+
+    // --- 3. ZEICHNEN (Render Loop) ---
+    function draw() {
+        const r = parseFloat(document.getElementById('slider-r').value);
+        const xPos = parseFloat(document.getElementById('slider-x').value);
+        const sliceWidth = 0.2;
+
+        document.getElementById('val-r').innerText = r.toFixed(2);
+        document.getElementById('val-x').innerText = xPos.toFixed(1);
+
+        ctx.clearRect(0, 0, width, height);
+
+        const stdDevNoise = Math.sqrt(Math.max(0.0001, 1 - r*r));
+        const yData = new Float64Array(N);
+
+        // A. Hintergrundpunkte (Weiß, sehr transparent)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        for(let i=0; i<N; i++) {
+            yData[i] = (xData[i] - xMean) * r + noiseBase[i] * stdDevNoise;
+
+            if(xData[i] <= xPos - sliceWidth/2 || xData[i] >= xPos + sliceWidth/2) {
+                ctx.beginPath();
+                ctx.arc(mapX(xData[i]), mapY(yData[i]), 2.5, 0, 2*Math.PI);
+                ctx.fill();
+            }
+        }
+
+        // B. Punkte im Slice (Weiß, volle Deckkraft für starken Cyberpunk/Dark Kontrast)
+        ctx.fillStyle = '#8da0cb';
+        for(let i=0; i<N; i++) {
+            if(xData[i] > xPos - sliceWidth/2 && xData[i] < xPos + sliceWidth/2) {
+                ctx.beginPath();
+                ctx.arc(mapX(xData[i]), mapY(yData[i]), 3.5, 0, 2*Math.PI);
+                ctx.fill();
+            }
+        }
+
+        // C. Vertikale Hilfslinie (Weiß, gestrichelt)
+        ctx.beginPath();
+        ctx.moveTo(mapX(xPos), 0);
+        ctx.lineTo(mapX(xPos), height);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // D. Statische Randverteilung (Referenz, Weiß gestrichelt)
+        const maxPdfMarginal = normPdf(0, 0, 1);
+        ctx.beginPath();
+        for(let y = yMin; y <= yMax; y += 0.05) {
+            let pdf = normPdf(y, 0, 1);
+            let scaledPdf = (pdf / maxPdfMarginal) * 1.5;
+            let cx = mapX(xPos + scaledPdf);
+            let cy = mapY(y);
+            if(y === yMin) ctx.moveTo(cx, cy);
+            else ctx.lineTo(cx, cy);
+        }
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // E. Theoretische bedingte Verteilung (Blau/Lila aus dem prop_cycle)
+        const theoreticMu = r * xPos;
+        const theoreticStd = stdDevNoise;
+        const maxPdfCond = normPdf(theoreticMu, theoreticMu, theoreticStd);
+
+        ctx.beginPath();
+        for(let y = yMin; y <= yMax; y += 0.02) {
+            let pdf = normPdf(y, theoreticMu, theoreticStd);
+            let scaledPdf = (pdf / maxPdfCond) * 1.5;
+            let cx = mapX(xPos + scaledPdf);
+            let cy = mapY(y);
+            if(y === yMin) ctx.moveTo(cx, cy);
+            else ctx.lineTo(cx, cy);
+        }
+        ctx.strokeStyle = '#8da0cb'; // Die dritte Farbe aus deinem cycler
+        ctx.lineWidth = 3.0; // Etwas dicker für besseren Kontrast
+        ctx.stroke();
+    }
+
+    // --- 4. EVENT LISTENER BINDEN ---
+    document.getElementById('slider-r').addEventListener('input', draw);
+    document.getElementById('slider-x').addEventListener('input', draw);
+
+    // Initiales Zeichnen beim Laden
+    draw();
+</script>
+
+</body>
+</html>
